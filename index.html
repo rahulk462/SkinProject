@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What is that on my skin?</title>
+  <style>
+      /* Style the tab buttons */
+      .tab {
+          overflow: hidden;
+          background-color: #f1f1f1;
+      }
+
+      .tab button {
+          background-color: inherit;
+          border: none;
+          outline: none;
+          cursor: pointer;
+          padding: 14px 16px;
+          transition: 0.3s;
+          font-size: 17px;
+      }
+
+      /* Change background color of the tab buttons on hover */
+      .tab button:hover {
+          background-color: #ddd;
+      }
+
+      /* Active/current tab button styling */
+      .tab button.active {
+          background-color: #ccc;
+      }
+
+      /* Hide all tab content by default */
+      .tabcontent {
+          animation: fadeEffect 0.5s; /* Fade in effect */
+          display: none;
+          padding: 6px 12px;
+          border-top: none;
+      }
+      @keyframes fadeEffect {
+          from {opacity: 0;}
+          to {opacity: 1;}
+      }
+    #webcam-container {
+      margin-top: 20px;
+    }
+    video {
+      border: 2px solid black;
+    }
+    #label-container div {
+      margin-top: 10px;
+      font-size: 18px;
+    }
+    body {
+        font-family: 'Roboto', sans-serif;
+    }
+
+    p {
+          font-size: 18px;
+          line-height: 1.6;
+    }
+    h1 {
+        font-size: 36px;
+        text-align: center; /* Horizontally centers the text */
+    }
+  </style>
+</head>
+<body>
+   <h1 id="title">What is that on my skin?</h1>
+    <div class="tab">
+      <button class="tablinks" onclick="openTab(event, 'Home')" id="defaultOpen">Home</button>
+      <button class="tablinks" onclick="openTab(event, 'Profile')">Profile</button>
+      <button class="tablinks" onclick="openTab(event, 'Settings')">Settings</button>
+    </div>
+
+    <!-- Tab content -->
+    <div id="Home" class="tabcontent">
+      <h3>Home</h3>
+      <p style="color: red;">DISCLAIMER: This is NOT a definitetive diagnosis, if you are still unsure, check with a doctor</p>  
+      <button id="start-btn" type="button" onclick="init()">Start</button> 
+      <div id="label-container"></div>
+      <div id="webcam-container"></div>
+      <button type="button" onclick="toggleMode()">Change Mode</button>
+      <button type="button" onclick="stopWebcam()">Stop Webcam</button>
+    </div>
+
+    <div id="Profile" class="tabcontent">
+      <h3>Profile</h3>
+      <p>We are high schoolers from Millburn who wish to help people who might be ill find out what it is on their skin if they cannot go to a doctor</p>
+    </div>
+
+    <div id="Settings" class="tabcontent">
+      <h3>Settings</h3>
+      <p>Adjust your settings here.</p>
+    </div>
+   
+  <!-- TensorFlow.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+  <!-- Teachable Machine Image library -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+  <script type="text/javascript">
+    // Link to your model
+    const URL = "./my_model/";
+
+    let model, webcam, labelContainer, maxPredictions;
+
+    // Load the image model and setup the webcam
+    async function stopWebcam() {
+        webcam.stop(); // Stops the webcam stream
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById("webcam-container").innerHTML = ""; // Clears the canvas
+    }
+    async function init() {
+        console.log("Initializing the model and webcam setup...");
+        const modelURL = URL + "model.json";
+        const metadataURL = URL + "metadata.json";
+        document.getElementById('start-btn').disabled = true;
+        try {
+            // Load the model and metadata
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Set up webcam
+            const flip = true;
+            webcam = new tmImage.Webcam(200, 200, flip);
+            await webcam.setup(); // Request access to the webcam
+            await webcam.play();
+            console.log("Webcam setup successful");
+
+            // Start the loop only after webcam is initialized
+            window.requestAnimationFrame(loop);
+
+            // Append webcam to the DOM
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+
+            // Add class labels to the DOM
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        } catch (error) {
+            console.error("Error setting up webcam or model:", error);
+        }
+    }
+      
+
+    var isDarkMode = true;
+
+    async function toggleMode() {
+        isDarkMode = !isDarkMode; // Toggle the mode
+
+        // Update body styles
+        document.body.style.backgroundColor = isDarkMode ? '#000000' : '#FFFFFF';
+        document.body.style.color = isDarkMode ? '#FFFFFF' : '#000000';
+
+          // Update title color
+        const title = document.getElementById('title');
+        if (title) {
+            title.style.color = isDarkMode ? '#FFFFFF' : '#000000';
+        }
+
+          // Update label colors if labelContainer is defined
+        if (typeof labelContainer !== 'undefined' && labelContainer) {
+            const labels = labelContainer.childNodes;
+            for (let i = 0; i < labels.length; i++) {
+                labels[i].style.color = isDarkMode ? '#FFFFFF' : '#000000';
+            }
+        }
+        buttons.forEach(button => {
+            button.style.backgroundColor = isDarkMode ? '#333' : '#4CAF50';
+            button.style.color = isDarkMode ? '#FFFFFF' : '#000000';
+        });
+
+        // Update tabs
+        const tabs = document.querySelectorAll('.tab button');
+        tabs.forEach(tab => {
+            tab.style.backgroundColor = isDarkMode ? '#333' : '#f1f1f1';
+            tab.style.color = isDarkMode ? '#FFFFFF' : '#000000';
+        });
+    }
+    // Loop the webcam feed and predict in real-time
+    async function loop() {
+        try {
+            if (webcam) {
+                webcam.update(); // Update the webcam frame
+                await predict();  // Run the prediction
+                window.requestAnimationFrame(loop);
+            } else {
+                console.error("Webcam is not initialized");
+            }
+        } catch (error) {
+            console.error("Error in loop function:", error);
+        }
+    }
+
+    // Predict the current frame of the webcam
+    async function openTab(evt, tabName) {
+          // Get all elements with class "tabcontent" and hide them
+        var tabcontent = document.getElementsByClassName("tabcontent");
+        for (var i = 0; i < tabcontent.length; i++) {
+            tabcontent[i].style.display = "none";
+        }
+
+          // Get all elements with class "tablinks" and remove the class "active"
+        var tablinks = document.getElementsByClassName("tablinks");
+        for (var i = 0; i < tablinks.length; i++) {
+            tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+
+          // Show the current tab, and add an "active" class to the button that opened the tab
+        document.getElementById(tabName).style.display = "block";
+        evt.currentTarget.className += " active";
+    }
+
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+        for (let i = 0; i < maxPredictions; i++) {
+            const probability = (prediction[i].probability * 100).toFixed(2);
+            let message = `${prediction[i].className}: ${probability}%`;
+
+            // Add additional logic: Only display if confidence is above 50%
+            if (prediction[i].probability > 0.5) {
+                message += " - High Confidence";
+            } else {
+                message += " - Low Confidence";
+            }
+
+            labelContainer.childNodes[i].innerHTML = message;
+        }
+    }
+  </script>
+</body>
+</html>
